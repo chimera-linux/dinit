@@ -65,6 +65,9 @@ void base_process_service::run_child_proc(run_proc_params params) noexcept
     const char *working_dir = params.working_dir;
     const char *logfile = params.logfile;
     bool on_console = params.on_console;
+    int nice = params.nice;
+    int ionice = params.ionice;
+    int oom_adj = params.oom_adj;
     int wpipefd = params.wpipefd;
     int csfd = params.csfd;
     int notify_fd = params.notify_fd;
@@ -299,6 +302,38 @@ void base_process_service::run_child_proc(run_proc_params params) noexcept
         if (limit.hard_set) setlimits.rlim_max = limit.limits.rlim_max;
         if (limit.soft_set) setlimits.rlim_cur = limit.limits.rlim_cur;
         if (setrlimit(limit.resource_id, &setlimits) != 0) goto failure_out;
+    }
+
+    // nice
+    if (nice != INT_MIN) {
+        if (setpriority(PRIO_PROCESS, getpid(), nice) != 0) goto failure_out;
+        // we usually create a new session leader; that makes nice not very
+        // useful as the Linux kernel will autogroup processes by session id
+        // except when disabled - so also work around this where enabled
+        // the r+ is used in order to avoid creating it where already disabled
+        errno = 0;
+        FILE *ag = std::fopen("/proc/self/autogroup", "r+");
+        if (ag) {
+            std::fprintf(ag, "%d\n", nice);
+            std::fclose(ag);
+        }
+        else if (errno != ENOENT) goto failure_out;
+    }
+
+    // ionice
+    if (ionice != INT_MIN) {
+        #ifdef __NR_ioprio_set
+        if (syscall(__NR_ioprio_set, 1, (int)getpid(), ionice) != 0) goto failure_out;
+        #endif
+    }
+
+    // oom score adjustment
+    if (oom_adj != INT_MIN) {
+        errno = 0;
+        FILE *adj = std::fopen("/proc/self/oom_score_adj", "w");
+        if (!adj) goto failure_out;
+        std::fprintf(adj, "%d\n", oom_adj);
+        std::fclose(adj);
     }
 
     #if SUPPORT_CGROUPS

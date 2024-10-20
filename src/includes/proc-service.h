@@ -43,6 +43,9 @@ struct run_proc_params
     bool on_console;          // whether to run on console
     bool in_foreground;       // if on console: whether to run in foreground
     bool unmask_sigint = false; // if in foreground: whether to unmask SIGINT
+    int nice = INT_MIN;
+    int ionice = INT_MIN;
+    int oom_adj = INT_MIN;
     int wpipefd;              // pipe to which error status will be sent (if error occurs)
     int csfd;                 // control socket fd (or -1); may be moved
     int socket_fd;            // pre-opened socket fd (or -1); may be moved
@@ -201,6 +204,12 @@ class base_process_service : public service_record
     cap_iab_t cap_iab = nullptr;
     unsigned int secbits = 0;
     bool no_new_privs = false;
+#endif
+
+#ifdef __linux__
+    int nice = INT_MIN;
+    int ionice = INT_MIN;
+    int oom_adj = INT_MIN;
 #endif
 
 #if SUPPORT_CGROUPS
@@ -483,6 +492,21 @@ class base_process_service : public service_record
         cap_iab = iab;
         secbits = sbits;
         iab = nullptr;
+    }
+    #endif
+
+    #ifdef __linux__
+    void set_nice(int nice_v) noexcept
+    {
+        nice = nice_v;
+    }
+    void set_ionice(int ionice_v) noexcept
+    {
+        ionice = ionice_v;
+    }
+    void set_oom_adj(int oom_adj_v) noexcept
+    {
+        oom_adj = oom_adj_v;
     }
     #endif
 

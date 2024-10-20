@@ -11,6 +11,7 @@
 #include <csignal>
 #include <cstring>
 #include <cstdlib>
+#include <climits>
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -270,6 +271,11 @@ enum class setting_id_t {
 #if SUPPORT_CAPABILITIES
     CAPABILITIES,
     SECURE_BITS,
+#endif
+#ifdef __linux__
+    NICE,
+    IONICE,
+    OOM_SCORE_ADJ,
 #endif
 };
 
@@ -834,6 +840,30 @@ inline unsigned long long parse_unum_param(file_pos_ref input_pos, const std::st
     }
 }
 
+// Parse a signed numeric parameter value
+inline long long parse_snum_param(file_pos_ref input_pos, const std::string &param,
+        const std::string &service_name, long long min = std::numeric_limits<long long>::min(),
+        long long max = std::numeric_limits<long long>::max())
+{
+    const char * num_err_msg = "specified value contains invalid numeric characters or is outside "
+            "allowed range.";
+
+    std::size_t ind = 0;
+    try {
+        long long v = std::stoll(param, &ind, 0);
+        if (v < min || v > max || ind != (param.length() - (v < 0))) {
+            throw service_description_exc(service_name, num_err_msg, input_pos);
+        }
+        return v;
+    }
+    catch (std::out_of_range &exc) {
+        throw service_description_exc(service_name, num_err_msg, input_pos);
+    }
+    catch (std::invalid_argument &exc) {
+        throw service_description_exc(service_name, num_err_msg, input_pos);
+    }
+}
+
 // In a vector, find or create rlimits for a particular resource type.
 inline service_rlimits &find_rlimits(std::vector<service_rlimits> &all_rlimits, int resource_id)
 {
@@ -1379,6 +1409,12 @@ class service_settings_wrapper
     secure_bits_t secbits;
     #endif
 
+    #ifdef __linux__
+    int nice = INT_MIN;
+    int ionice = INT_MIN;
+    int oom_adj = INT_MIN;
+    #endif
+
     #if USE_UTMPX
     char inittab_id[sizeof(utmpx().ut_id)] = {0};
     char inittab_line[sizeof(utmpx().ut_line)] = {0};
@@ -1637,6 +1673,43 @@ void process_service_line(settings_wrapper &settings, const char *name, const ch
                             "secure-bits", input_pos);
                 }
             }
+            break;
+        }
+        #endif
+        #ifdef __linux__
+        case setting_id_t::NICE:
+        {
+            string nice_str = read_setting_value(input_pos, i, end);
+            settings.nice = (int)parse_snum_param(input_pos, nice_str, name, -20, 19);
+            break;
+        }
+        case setting_id_t::IONICE:
+        {
+            string ionice_str = read_setting_value(input_pos, i, end);
+            if (ionice_str == "none") {
+                settings.ionice = 0;
+            }
+            else if (starts_with(ionice_str, "rt:")) {
+                auto nval = parse_unum_param(input_pos, ionice_str.substr(3 /* len 'rt:' */), name, 7);
+                settings.ionice = (1 << 13) | nval;
+            }
+            else if (starts_with(ionice_str, "be:")) {
+                auto nval = parse_unum_param(input_pos, ionice_str.substr(3 /* len 'be:' */), name, 7);
+                settings.ionice = (2 << 13) | nval;
+            }
+            else if (ionice_str == "idle") {
+                settings.ionice = 3 << 13;
+            }
+            else {
+                    throw service_description_exc(name, "invalid value for ionice: " + ionice_str,
+                            name, input_pos);
+            }
+            break;
+        }
+        case setting_id_t::OOM_SCORE_ADJ:
+        {
+            string oom_adj_str = read_setting_value(input_pos, i, end);
+            settings.oom_adj = (int)parse_snum_param(input_pos, oom_adj_str, name, -1000, 1000);
             break;
         }
         #endif

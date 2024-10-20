@@ -940,6 +940,11 @@ bool process_service::start_stop_process(const std::vector<const char *> &cmd) n
         run_params.secbits = secbits;
         run_params.no_new_privs = onstart_flags.no_new_privs;
         #endif
+        #ifdef __linux__
+        run_params.nice = nice;
+        run_params.ionice = ionice;
+        run_params.oom_adj = oom_adj;
+        #endif
         run_child_proc(run_params);
     }
     else {

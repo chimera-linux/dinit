@@ -747,6 +747,11 @@ service_record * dirload_service_set::load_reload_service(const char *fullname, 
             #if SUPPORT_CAPABILITIES
             rvalps->set_cap(cap_iab, settings.secbits.get());
             #endif
+            #ifdef __linux__
+            rvalps->set_nice(settings.nice);
+            rvalps->set_ionice(settings.ionice);
+            rvalps->set_oom_adj(settings.oom_adj);
+            #endif
             rvalps->set_rlimits(std::move(settings.rlimits));
             rvalps->set_restart_interval(settings.restart_interval, settings.max_restarts);
             rvalps->set_restart_delay(settings.restart_delay);
@@ -793,6 +798,11 @@ service_record * dirload_service_set::load_reload_service(const char *fullname, 
             #if SUPPORT_CAPABILITIES
             rvalps->set_cap(cap_iab, settings.secbits.get());
             #endif
+            #ifdef __linux__
+            rvalps->set_nice(settings.nice);
+            rvalps->set_ionice(settings.ionice);
+            rvalps->set_oom_adj(settings.oom_adj);
+            #endif
             rvalps->set_rlimits(std::move(settings.rlimits));
             rvalps->set_pid_file(std::move(settings.pid_file));
             rvalps->set_restart_interval(settings.restart_interval, settings.max_restarts);
@@ -834,6 +844,11 @@ service_record * dirload_service_set::load_reload_service(const char *fullname, 
             #endif
             #if SUPPORT_CAPABILITIES
             rvalps->set_cap(cap_iab, settings.secbits.get());
+            #endif
+            #ifdef __linux__
+            rvalps->set_nice(settings.nice);
+            rvalps->set_ionice(settings.ionice);
+            rvalps->set_oom_adj(settings.oom_adj);
             #endif
             rvalps->set_rlimits(std::move(settings.rlimits));
             rvalps->set_stop_timeout(settings.stop_timeout);

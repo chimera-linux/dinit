@@ -66,6 +66,12 @@ setting_details all_settings[] = {
         {"secure-bits",             setting_id_t::SECURE_BITS,              false,  true,   false},
 #endif
 
+#ifdef __linux__
+        {"nice",                    setting_id_t::NICE,                     false,  true,   false},
+        {"ionice",                  setting_id_t::IONICE,                   false,  true,   false},
+        {"oom-score-adj",           setting_id_t::OOM_SCORE_ADJ,            false,  true,   false},
+#endif
+
         {nullptr,                   setting_id_t::LAST,                     false,  false,  false}
 };
 
