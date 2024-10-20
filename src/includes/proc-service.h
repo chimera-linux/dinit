@@ -5,6 +5,10 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 
+#if SUPPORT_CAPABILITIES
+#include <sys/capability.h>
+#endif
+
 #include <baseproc-sys.h>
 #include <service.h>
 #include <dinit-utmp.h>
@@ -30,6 +34,11 @@ struct run_proc_params
     const char *env_file;     // file with environment settings (or nullptr)
     #if SUPPORT_CGROUPS
     const char *run_in_cgroup = nullptr; //  cgroup path
+    #endif
+    #if SUPPORT_CAPABILITIES
+    cap_iab_t cap_iab = nullptr;
+    unsigned int secbits = 0;
+    bool no_new_privs = false;
     #endif
     bool on_console;          // whether to run on console
     bool in_foreground;       // if on console: whether to run in foreground
@@ -188,6 +197,12 @@ class base_process_service : public service_record
 
     std::vector<service_rlimits> rlimits; // resource limits
 
+#if SUPPORT_CAPABILITIES
+    cap_iab_t cap_iab = nullptr;
+    unsigned int secbits = 0;
+    bool no_new_privs = false;
+#endif
+
 #if SUPPORT_CGROUPS
     string run_in_cgroup;
 #endif
@@ -320,6 +335,9 @@ class base_process_service : public service_record
         }
         process_timer.deregister(event_loop);
         set_log_mode(log_type_id::NONE);
+        #if SUPPORT_CAPABILITIES
+        cap_free(cap_iab);
+        #endif
     }
 
     // Set the command to run this service (executable and arguments, nul separated). The command_parts_p
@@ -456,6 +474,15 @@ class base_process_service : public service_record
     void set_cgroup(std::string &&run_in_cgroup_p) noexcept
     {
         run_in_cgroup = std::move(run_in_cgroup_p);
+    }
+    #endif
+
+    #if SUPPORT_CAPABILITIES
+    void set_cap(cap_iab_t &iab, unsigned int sbits) noexcept
+    {
+        cap_iab = iab;
+        secbits = sbits;
+        iab = nullptr;
     }
     #endif
 
